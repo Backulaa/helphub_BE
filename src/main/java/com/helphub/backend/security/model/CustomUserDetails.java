@@ -18,6 +18,7 @@ public class CustomUserDetails implements UserDetails {
     private final String email;
     private final String password;
     private final boolean isActive;
+    private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomUserDetails(User user) {
@@ -25,6 +26,7 @@ public class CustomUserDetails implements UserDetails {
         this.email = user.getEmail();
         this.password = user.getPassword();
         this.isActive = Boolean.TRUE.equals(user.getIsActive());
+        this.role = user.getRole().name();
         this.authorities = List.of(
                 new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
@@ -32,6 +34,11 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
     }
 
     @Override
@@ -57,5 +64,17 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return isActive;
+    }
+
+    public UUID getUserId() {
+        return id;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public boolean hasRole(String roleName) {
+        return this.role.equalsIgnoreCase(roleName);
     }
 }
