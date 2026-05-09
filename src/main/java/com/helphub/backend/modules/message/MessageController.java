@@ -65,4 +65,17 @@ public class MessageController {
                                 .build());
         }
 
+        @PatchMapping("/conversations/{conversationId}/messages/{messageId}/read")
+        public ResponseEntity<ApiResponse<Object>> markAsRead(
+                        @PathVariable @NotNull UUID conversationId,
+                        @PathVariable @NotNull UUID messageId) {
+
+                messageService.markAsRead(conversationId, messageId);
+
+                return ResponseEntity.ok(ApiResponse.builder()
+                                .success(true)
+                                .message("Conversation marked as read successfully")
+                                .data(null)
+                                .build());
+        }
 }
