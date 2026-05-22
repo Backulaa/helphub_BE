@@ -45,8 +45,9 @@ public class VolunteerAssignmentServiceImpl implements VolunteerAssignmentServic
 
         SupportRequest supportRequest = getSupportRequestById(supportRequestId);
 
-        if (supportRequest.getStatus() != SupportRequestStatus.APPROVED) {
-            throw new BadRequestException("Only approved support request can be applied");
+        if (supportRequest.getStatus() != SupportRequestStatus.APPROVED
+                && supportRequest.getStatus() != SupportRequestStatus.IN_PROGRESS) {
+            throw new BadRequestException("Only approved or in-progress support request can be applied");
         }
 
         if (supportRequest.getRequester().getId().equals(volunteer.getId())) {
@@ -180,6 +181,7 @@ public class VolunteerAssignmentServiceImpl implements VolunteerAssignmentServic
         return volunteerAssignmentMapper.toResponse(savedAssignment);
     }
 
+    @SuppressWarnings("unused")
     @Override
     public VolunteerAssignmentResponse completeMyAssignment(UUID volunteerId, UUID supportRequestId) {
         User volunteer = getUserById(volunteerId);
@@ -193,11 +195,6 @@ public class VolunteerAssignmentServiceImpl implements VolunteerAssignmentServic
         }
 
         assignment.setStatus(VolunteerAssignmentStatus.COMPLETED);
-
-        if (supportRequest.getStatus() == SupportRequestStatus.IN_PROGRESS) {
-            supportRequest.setStatus(SupportRequestStatus.COMPLETED);
-            supportRequestRepository.save(supportRequest);
-        }
 
         VolunteerAssignment savedAssignment = volunteerAssignmentRepository.save(assignment);
 
