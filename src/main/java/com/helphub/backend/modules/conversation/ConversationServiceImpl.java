@@ -119,6 +119,8 @@ public class ConversationServiceImpl implements ConversationService {
                         Message lastMessage = lastMessageOpt.get();
                         lastMessageId = lastMessage.getId();
                         lastMessageTime = lastMessage.getCreatedAt();
+                        response.setLastMessageContent(lastMessage.getContent());
+                        response.setLastMessageCreatedAt(lastMessage.getCreatedAt());
                     }
 
                     response.setLastMessageId(lastMessageId);

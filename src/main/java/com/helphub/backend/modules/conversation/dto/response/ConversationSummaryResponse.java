@@ -19,5 +19,7 @@ public class ConversationSummaryResponse {
     private List<ConversationMemberResponse> members;
     private UUID lastMessageId;
     private Integer unreadCount;
+    private String lastMessageContent;
+    private LocalDateTime lastMessageCreatedAt;
     private LocalDateTime createdAt;
 }
