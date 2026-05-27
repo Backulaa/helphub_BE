@@ -309,13 +309,4 @@ public class ConversationServiceImpl implements ConversationService {
         }
     }
 
-    private User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
-            throw new ForbiddenException("Unauthenticated user");
-        }
-
-        return findActiveUserById(userDetails.getUserId());
-    }
 }
