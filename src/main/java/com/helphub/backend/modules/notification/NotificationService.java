@@ -7,5 +7,18 @@ import java.util.List;
 import java.util.UUID;
 
 public interface NotificationService {
+    NotificationResponse createNotification(
+            UUID userId,
+            String content,
+            String referenceType,
+            UUID referenceId,
+            String actionUrl);
 
+    List<NotificationResponse> getMyNotifications();
+
+    UnreadNotificationCountResponse getMyUnreadCount();
+
+    NotificationResponse markAsRead(UUID notificationId);
+
+    void markAllAsRead();
 }
