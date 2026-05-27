@@ -243,7 +243,6 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    @SuppressWarnings("null")
     private void broadcastMessageToConversationMembers(Conversation conversation, MessageResponse messageResponse) {
         List<ConversationMember> members = conversationMemberRepository.findAllByConversationId(conversation.getId());
 
