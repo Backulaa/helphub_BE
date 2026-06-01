@@ -18,4 +18,6 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     List<Post> findAllByIsActiveTrueAndStatusOrderByCreatedAtDesc(PostStatus status);
 
     List<Post> findAllBySupportRequestOrderByCreatedAtDesc(SupportRequest supportRequest);
+
+    long countByStatus(PostStatus status);
 }

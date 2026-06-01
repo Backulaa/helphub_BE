@@ -18,6 +18,8 @@ import org.springframework.data.repository.query.Param;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailIgnoreCaseAndIsActiveTrue(String email);
+
     boolean existsByEmail(String email);
 
     Optional<User> findByIdAndIsActiveTrue(UUID id);
@@ -34,4 +36,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("UPDATE User u SET u.lastLoginAt = :lastLoginAt WHERE u.id = :userId")
     void updateLastLoginAt(@Param("userId") UUID userId,
             @Param("lastLoginAt") LocalDateTime lastLoginAt);
+
+    long countByIsActiveTrue();
+
+    long countByIsActiveFalse();
+
+    long countByRole(UserRole role);
 }
