@@ -191,3 +191,116 @@ class CategoryServiceImplTest {
 
         verify(categoryRepository).findAllByOrderByCreatedAtDesc();
     }
+
+    @Test
+    void getCategoryById_success_shouldReturnCategoryDetail() {
+        CategoryDetailResponse expectedResponse = CategoryDetailResponse.builder()
+                .id(categoryId)
+                .name("Medical")
+                .code("MEDICAL")
+                .description("Medical support")
+                .iconUrl("https://example.com/medical.png")
+                .isActive(true)
+                .build();
+
+        when(categoryRepository.findById(Objects.requireNonNull(categoryId)))
+                .thenReturn(Optional.of(category));
+
+        when(categoryMapper.toDetailResponse(category))
+                .thenReturn(expectedResponse);
+
+        CategoryDetailResponse response = categoryService.getCategoryById(Objects.requireNonNull(categoryId));
+
+        assertNotNull(response);
+        assertEquals(categoryId, response.getId());
+        assertEquals("MEDICAL", response.getCode());
+
+        verify(categoryRepository).findById(Objects.requireNonNull(categoryId));
+        verify(categoryMapper).toDetailResponse(category);
+    }
+
+    @Test
+    void getCategoryById_shouldThrowResourceNotFoundException_whenNotFound() {
+        when(categoryRepository.findById(Objects.requireNonNull(categoryId)))
+                .thenReturn(Optional.empty());
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> categoryService.getCategoryById(Objects.requireNonNull(categoryId)));
+
+        assertEquals("Category not found with id: " + categoryId, exception.getMessage());
+
+        verify(categoryMapper, never()).toDetailResponse(any(Category.class));
+    }
+
+    @Test
+    void updateCategory_success_shouldUpdateCategory() {
+        UpdateCategoryRequest request = new UpdateCategoryRequest();
+        request.setName("  Healthcare  ");
+        request.setCode(" health care ");
+        request.setDescription("  Healthcare support  ");
+        request.setIconUrl("  https://example.com/healthcare.png  ");
+
+        CategoryDetailResponse expectedResponse = CategoryDetailResponse.builder()
+                .id(categoryId)
+                .name("Healthcare")
+                .code("HEALTH_CARE")
+                .description("Healthcare support")
+                .iconUrl("https://example.com/healthcare.png")
+                .isActive(true)
+                .build();
+
+        when(categoryRepository.findById(Objects.requireNonNull(categoryId)))
+                .thenReturn(Optional.of(category));
+
+        when(categoryRepository.findAll())
+                .thenReturn(List.of(category));
+
+        when(categoryRepository.save(Objects.requireNonNull(category)))
+                .thenReturn(category);
+
+        when(categoryMapper.toDetailResponse(Objects.requireNonNull(category)))
+                .thenReturn(expectedResponse);
+
+        CategoryDetailResponse response = categoryService.updateCategory(categoryId, request);
+
+        assertEquals("Healthcare", response.getName());
+        assertEquals("HEALTH_CARE", response.getCode());
+
+        assertEquals("Healthcare", category.getName());
+        assertEquals("HEALTH_CARE", category.getCode());
+        assertEquals("Healthcare support", category.getDescription());
+        assertEquals("https://example.com/healthcare.png", category.getIconUrl());
+
+        verify(categoryRepository).save(Objects.requireNonNull(category));
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateCategory_shouldThrowBadRequestException_whenNameExists() {
+        Category existingCategory = createCategory(
+                UUID.randomUUID(),
+                "Food",
+                "FOOD",
+                "Food support",
+                "https://example.com/food.png",
+                true);
+
+        UpdateCategoryRequest request = new UpdateCategoryRequest();
+        request.setName("food");
+        request.setCode("NEW_CODE");
+
+        when(categoryRepository.findById(categoryId))
+                .thenReturn(Optional.of(category));
+
+        when(categoryRepository.findAll())
+                .thenReturn(List.of(category, existingCategory));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> categoryService.updateCategory(categoryId, request));
+
+        assertEquals("Category name already exists", exception.getMessage());
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
