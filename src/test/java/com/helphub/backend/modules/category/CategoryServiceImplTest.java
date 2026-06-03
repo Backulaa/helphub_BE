@@ -382,3 +382,23 @@ class CategoryServiceImplTest {
 
         verify(categoryRepository, never()).save(any(Category.class));
     }
+
+    private Category createCategory(
+            UUID id,
+            String name,
+            String code,
+            String description,
+            String iconUrl,
+            Boolean isActive) {
+
+        Category category = new Category();
+        category.setId(id);
+        category.setName(name);
+        category.setCode(code);
+        category.setDescription(description);
+        category.setIconUrl(iconUrl);
+        category.setIsActive(isActive);
+
+        return category;
+    }
+}
