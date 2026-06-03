@@ -304,3 +304,81 @@ class CategoryServiceImplTest {
 
         verify(categoryRepository, never()).save(any(Category.class));
     }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateCategory_shouldThrowBadRequestException_whenCodeExists() {
+        Category existingCategory = createCategory(
+                UUID.randomUUID(),
+                "Food",
+                "FOOD",
+                "Food support",
+                "https://example.com/food.png",
+                true);
+
+        UpdateCategoryRequest request = new UpdateCategoryRequest();
+        request.setName("New Category");
+        request.setCode("food");
+
+        when(categoryRepository.findById(categoryId))
+                .thenReturn(Optional.of(category));
+
+        when(categoryRepository.findAll())
+                .thenReturn(List.of(category, existingCategory));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> categoryService.updateCategory(categoryId, request));
+
+        assertEquals("Category code already exists", exception.getMessage());
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
+
+    @Test
+    void updateCategoryStatus_success_shouldUpdateStatus() {
+        UpdateCategoryStatusRequest request = new UpdateCategoryStatusRequest();
+        request.setIsActive(false);
+
+        CategoryDetailResponse expectedResponse = CategoryDetailResponse.builder()
+                .id(categoryId)
+                .name("Medical")
+                .code("MEDICAL")
+                .isActive(false)
+                .build();
+
+        when(categoryRepository.findById(Objects.requireNonNull(categoryId)))
+                .thenReturn(Optional.of(category));
+
+        when(categoryRepository.save(Objects.requireNonNull(category)))
+                .thenReturn(category);
+
+        when(categoryMapper.toDetailResponse(Objects.requireNonNull(category)))
+                .thenReturn(expectedResponse);
+
+        CategoryDetailResponse response = categoryService.updateCategoryStatus(Objects.requireNonNull(categoryId),
+                request);
+
+        assertFalse(response.getIsActive());
+        assertFalse(category.getIsActive());
+
+        verify(categoryRepository).save(Objects.requireNonNull(category));
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateCategoryStatus_shouldThrowResourceNotFoundException_whenNotFound() {
+        UpdateCategoryStatusRequest request = new UpdateCategoryStatusRequest();
+        request.setIsActive(false);
+
+        when(categoryRepository.findById(categoryId))
+                .thenReturn(Optional.empty());
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> categoryService.updateCategoryStatus(categoryId, request));
+
+        assertEquals("Category not found with id: " + categoryId, exception.getMessage());
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
