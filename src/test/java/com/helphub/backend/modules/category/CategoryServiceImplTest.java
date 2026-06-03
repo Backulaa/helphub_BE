@@ -123,3 +123,71 @@ class CategoryServiceImplTest {
 
         verify(categoryRepository, never()).save(any(Category.class));
     }
+
+    @Test
+    void getActiveCategories_success_shouldReturnActiveCategories() {
+        CategorySummaryResponse expectedResponse = CategorySummaryResponse.builder()
+                .id(categoryId)
+                .name("Medical")
+                .code("MEDICAL")
+                .iconUrl("https://example.com/medical.png")
+                .isActive(true)
+                .build();
+
+        when(categoryRepository.findAllByIsActiveTrueOrderByCreatedAtDesc())
+                .thenReturn(List.of(category));
+
+        when(categoryMapper.toSummaryResponse(category))
+                .thenReturn(expectedResponse);
+
+        List<CategorySummaryResponse> response = categoryService.getActiveCategories();
+
+        assertEquals(1, response.size());
+        assertEquals(categoryId, response.get(0).getId());
+        assertEquals("Medical", response.get(0).getName());
+
+        verify(categoryRepository).findAllByIsActiveTrueOrderByCreatedAtDesc();
+        verify(categoryMapper).toSummaryResponse(category);
+    }
+
+    @Test
+    void getAllCategories_success_shouldReturnAllCategories() {
+        Category inactiveCategory = createCategory(
+                UUID.randomUUID(),
+                "Food",
+                "FOOD",
+                "Food support",
+                "https://example.com/food.png",
+                false);
+
+        CategorySummaryResponse activeResponse = CategorySummaryResponse.builder()
+                .id(categoryId)
+                .name("Medical")
+                .code("MEDICAL")
+                .isActive(true)
+                .build();
+
+        CategorySummaryResponse inactiveResponse = CategorySummaryResponse.builder()
+                .id(inactiveCategory.getId())
+                .name("Food")
+                .code("FOOD")
+                .isActive(false)
+                .build();
+
+        when(categoryRepository.findAllByOrderByCreatedAtDesc())
+                .thenReturn(List.of(category, inactiveCategory));
+
+        when(categoryMapper.toSummaryResponse(category))
+                .thenReturn(activeResponse);
+
+        when(categoryMapper.toSummaryResponse(inactiveCategory))
+                .thenReturn(inactiveResponse);
+
+        List<CategorySummaryResponse> response = categoryService.getAllCategories();
+
+        assertEquals(2, response.size());
+        assertEquals("Medical", response.get(0).getName());
+        assertEquals("Food", response.get(1).getName());
+
+        verify(categoryRepository).findAllByOrderByCreatedAtDesc();
+    }
