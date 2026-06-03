@@ -42,3 +42,48 @@ class CategoryServiceImplTest {
     private Category category;
 
     @BeforeEach
+    void setUp() {
+        categoryId = UUID.randomUUID();
+
+        category = createCategory(
+                categoryId,
+                "Medical",
+                "MEDICAL",
+                "Medical support",
+                "https://example.com/medical.png",
+                true);
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void createCategory_success_shouldCreateCategory() {
+        CreateCategoryRequest request = new CreateCategoryRequest();
+        request.setName("  Education  ");
+        request.setCode(" education ");
+        request.setDescription("  Education support  ");
+        request.setIconUrl("  https://example.com/education.png  ");
+
+        CategoryDetailResponse expectedResponse = CategoryDetailResponse.builder()
+                .id(UUID.randomUUID())
+                .name("Education")
+                .code("EDUCATION")
+                .description("Education support")
+                .iconUrl("https://example.com/education.png")
+                .isActive(true)
+                .build();
+
+        when(categoryRepository.findAll()).thenReturn(List.of(category));
+        when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(categoryMapper.toDetailResponse(any(Category.class))).thenReturn(expectedResponse);
+
+        CategoryDetailResponse response = categoryService.createCategory(request);
+
+        assertNotNull(response);
+        assertEquals("Education", response.getName());
+        assertEquals("EDUCATION", response.getCode());
+        assertTrue(response.getIsActive());
+
+        verify(categoryRepository).findAll();
+        verify(categoryRepository).save(any(Category.class));
+        verify(categoryMapper).toDetailResponse(any(Category.class));
+    }
