@@ -60,3 +60,17 @@ class UserServiceImplTest {
         user = createUser(userId, "Nguyen Van A", "user@example.com", UserRole.REQUESTER, true);
         admin = createUser(adminId, "Admin User", "admin@example.com", UserRole.ADMIN, true);
     }
+
+    private User createUser(UUID id, String fullName, String email, UserRole role, Boolean isActive) {
+        User user = new User();
+        user.setId(id);
+        user.setFullName(fullName);
+        user.setEmail(email);
+        user.setPhone("0909123456");
+        user.setPassword("encoded-password");
+        user.setRole(role);
+        user.setAvatarUrl("https://example.com/avatar.png");
+        user.setIsActive(isActive);
+        return user;
+    }
+}
