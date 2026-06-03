@@ -1,6 +1,7 @@
 package com.helphub.backend.security.jwt;
 
 import com.helphub.backend.persistence.entity.User;
+import com.helphub.backend.persistence.repository.ConversationMemberRepository;
 import com.helphub.backend.persistence.repository.UserRepository;
 import com.helphub.backend.security.model.WebSocketUserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -13,12 +14,19 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Component
 @RequiredArgsConstructor
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final ConversationMemberRepository conversationMemberRepository;
+    private static final Pattern CONVERSATION_MESSAGES_TOPIC = Pattern.compile(
+            "^/topic/conversations/([0-9a-fA-F-]{36})/messages$");
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
@@ -52,6 +60,35 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             accessor.setUser(new WebSocketUserPrincipal(user.getId(), user.getEmail()));
         }
 
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            validateSubscription(accessor);
+        }
+
         return message;
+    }
+
+    private void validateSubscription(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (destination == null) {
+            return;
+        }
+
+        Matcher matcher = CONVERSATION_MESSAGES_TOPIC.matcher(destination);
+        if (!matcher.matches()) {
+            return;
+        }
+
+        if (!(accessor.getUser() instanceof WebSocketUserPrincipal principal)) {
+            throw new IllegalArgumentException("Missing websocket user");
+        }
+
+        UUID conversationId = UUID.fromString(matcher.group(1));
+        boolean isMember = conversationMemberRepository.existsByConversationIdAndUserId(
+                conversationId,
+                principal.getUserId());
+
+        if (!isMember) {
+            throw new IllegalArgumentException("Not authorized to subscribe to this conversation");
+        }
     }
 }

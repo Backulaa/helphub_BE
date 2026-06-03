@@ -18,6 +18,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Objects;
@@ -64,10 +66,15 @@ public class NotificationServiceImpl implements NotificationService {
                 .unreadCount(unreadCount)
                 .build();
 
-        messagingTemplate.convertAndSendToUser(
-                user.getId().toString(),
-                "/queue/notifications",
-                payload);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                messagingTemplate.convertAndSendToUser(
+                        user.getId().toString(),
+                        "/queue/notifications",
+                        payload);
+            }
+        });
         return response;
     }
 

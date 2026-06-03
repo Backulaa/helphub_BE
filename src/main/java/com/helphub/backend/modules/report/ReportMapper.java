@@ -20,6 +20,7 @@ public class ReportMapper {
                 .reporterName(reporter.getFullName())
                 .targetType(report.getTargetType())
                 .targetId(report.getTargetId())
+                .reason(report.getReason())
                 .status(report.getStatus())
                 .createdAt(report.getCreatedAt())
                 .build();

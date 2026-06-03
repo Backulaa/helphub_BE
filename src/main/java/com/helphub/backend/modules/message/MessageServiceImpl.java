@@ -19,6 +19,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
 
@@ -65,10 +67,9 @@ public class MessageServiceImpl implements MessageService {
         conversation.setUpdatedAt(DateTimeUtils.now());
         conversationRepository.save(conversation);
 
-        notifyOtherMembers(conversation, currentUser, message);
-
         MessageResponse response = messageMapper.toResponse(message, messageMediaList);
 
+        notifyOtherMembers(conversation, currentUser, message);
         broadcastMessageToConversationMembers(conversation, response);
 
         return response;
@@ -226,25 +227,35 @@ public class MessageServiceImpl implements MessageService {
 
     private void notifyOtherMembers(Conversation conversation, User sender, Message message) {
         List<ConversationMember> members = conversationMemberRepository.findAllByConversationId(conversation.getId());
+        List<UUID> receiverIds = members.stream()
+                .map(member -> member.getUser().getId())
+                .filter(receiverId -> !receiverId.equals(sender.getId()))
+                .toList();
 
-        for (ConversationMember member : members) {
-            User receiver = member.getUser();
+        String content = message.getContent();
+        UUID messageId = message.getId();
+        UUID conversationId = conversation.getId();
 
-            if (receiver.getId().equals(sender.getId())) {
-                continue;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (UUID receiverId : receiverIds) {
+                    notificationService.createNotification(
+                            receiverId,
+                            content,
+                            "MESSAGE",
+                            messageId,
+                            "/conversations/" + conversationId);
+                }
             }
-
-            notificationService.createNotification(
-                    receiver.getId(),
-                    message.getContent(),
-                    "MESSAGE",
-                    message.getId(),
-                    "/conversations/" + conversation.getId());
-        }
+        });
     }
 
     private void broadcastMessageToConversationMembers(Conversation conversation, MessageResponse messageResponse) {
         List<ConversationMember> members = conversationMemberRepository.findAllByConversationId(conversation.getId());
+        List<String> userIds = members.stream()
+                .map(member -> Objects.requireNonNull(member.getUser().getId()).toString())
+                .toList();
 
         RealtimeMessageResponse payload = RealtimeMessageResponse.builder()
                 .eventType("MESSAGE_CREATED")
@@ -253,16 +264,17 @@ public class MessageServiceImpl implements MessageService {
 
         Object messagePayload = Objects.requireNonNull(payload);
 
-        for (ConversationMember member : members) {
-
-            UUID memberId = Objects.requireNonNull(member.getUser().getId());
-
-            String userId = memberId.toString();
-
-            messagingTemplate.convertAndSendToUser(
-                    userId,
-                    "/queue/messages",
-                    messagePayload);
-        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                userIds.forEach(userId -> messagingTemplate.convertAndSendToUser(
+                        userId,
+                        "/queue/messages",
+                        messagePayload));
+                messagingTemplate.convertAndSend(
+                        "/topic/conversations/" + conversation.getId() + "/messages",
+                        messagePayload);
+            }
+        });
     }
 }
