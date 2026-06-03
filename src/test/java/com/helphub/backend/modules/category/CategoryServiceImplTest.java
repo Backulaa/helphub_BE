@@ -87,3 +87,39 @@ class CategoryServiceImplTest {
         verify(categoryRepository).save(any(Category.class));
         verify(categoryMapper).toDetailResponse(any(Category.class));
     }
+
+    @SuppressWarnings("null")
+    @Test
+    void createCategory_shouldThrowBadRequestException_whenNameExists() {
+        CreateCategoryRequest request = new CreateCategoryRequest();
+        request.setName("medical");
+        request.setCode("NEW_CODE");
+
+        when(categoryRepository.findAll()).thenReturn(List.of(category));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> categoryService.createCategory(request));
+
+        assertEquals("Category name already exists", exception.getMessage());
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void createCategory_shouldThrowBadRequestException_whenCodeExists() {
+        CreateCategoryRequest request = new CreateCategoryRequest();
+        request.setName("New Category");
+        request.setCode("medical");
+
+        when(categoryRepository.findAll()).thenReturn(List.of(category));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> categoryService.createCategory(request));
+
+        assertEquals("Category code already exists", exception.getMessage());
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
