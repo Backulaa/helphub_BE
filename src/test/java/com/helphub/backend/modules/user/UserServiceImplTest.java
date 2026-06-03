@@ -294,6 +294,131 @@ class UserServiceImplTest {
         verify(userRepository).save(Objects.requireNonNull(user));
     }
 
+    @SuppressWarnings("null")
+    @Test
+    void updateUserRole_shouldThrowForbiddenException_whenActorIsNotAdmin() {
+        UUID volunteerId = UUID.randomUUID();
+        User volunteer = createUser(volunteerId, "Volunteer", "volunteer@example.com", UserRole.VOLUNTEER, true);
+
+        UpdateUserRoleRequest request = new UpdateUserRoleRequest();
+        request.setRole(UserRole.COLLABORATOR);
+
+        when(userRepository.findById(Objects.requireNonNull(volunteerId))).thenReturn(Optional.of(volunteer));
+        when(userRepository.findById(Objects.requireNonNull(userId))).thenReturn(Optional.of(user));
+
+        ForbiddenException exception = assertThrows(
+                ForbiddenException.class,
+                () -> userService.updateUserRole(Objects.requireNonNull(userId), request,
+                        Objects.requireNonNull(volunteerId)));
+
+        assertEquals("Only admin can perform this action", exception.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateUserRole_shouldThrowBadRequestException_whenAdminChangesOwnRoleToNonAdmin() {
+        UpdateUserRoleRequest request = new UpdateUserRoleRequest();
+        request.setRole(UserRole.VOLUNTEER);
+
+        when(userRepository.findById(Objects.requireNonNull(adminId))).thenReturn(Optional.of(admin));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> userService.updateUserRole(Objects.requireNonNull(adminId), request,
+                        Objects.requireNonNull(adminId)));
+
+        assertEquals("Admin cannot change their own role", exception.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateUserRole_shouldThrowBadRequestException_whenUserAlreadyHasRole() {
+        UpdateUserRoleRequest request = new UpdateUserRoleRequest();
+        request.setRole(UserRole.REQUESTER);
+
+        when(userRepository.findById(Objects.requireNonNull(adminId))).thenReturn(Optional.of(admin));
+        when(userRepository.findById(Objects.requireNonNull(userId))).thenReturn(Optional.of(user));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> userService.updateUserRole(Objects.requireNonNull(userId), request,
+                        Objects.requireNonNull(adminId)));
+
+        assertEquals("User already has this role", exception.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void updateUserStatus_success_shouldUpdateStatus() {
+        UpdateUserStatusRequest request = new UpdateUserStatusRequest();
+        request.setIsActive(false);
+
+        User savedUser = createUser(userId, "Nguyen Van A", "user@example.com", UserRole.REQUESTER, false);
+
+        UserDetailResponse expectedResponse = UserDetailResponse.builder()
+                .id(userId)
+                .fullName(savedUser.getFullName())
+                .email(savedUser.getEmail())
+                .role(UserRole.REQUESTER)
+                .isActive(false)
+                .build();
+
+        when(userRepository.findById(Objects.requireNonNull(adminId))).thenReturn(Optional.of(admin));
+        when(userRepository.findById(Objects.requireNonNull(userId))).thenReturn(Optional.of(user));
+        when(userRepository.save(Objects.requireNonNull(user))).thenReturn(savedUser);
+        when(userMapper.toUserDetailResponse(Objects.requireNonNull(savedUser))).thenReturn(expectedResponse);
+
+        UserDetailResponse response = userService.updateUserStatus(Objects.requireNonNull(userId), request,
+                Objects.requireNonNull(adminId));
+
+        assertFalse(response.getIsActive());
+        assertFalse(user.getIsActive());
+
+        verify(userRepository).save(Objects.requireNonNull(user));
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateUserStatus_shouldThrowBadRequestException_whenAdminDeactivatesOwnAccount() {
+        UpdateUserStatusRequest request = new UpdateUserStatusRequest();
+        request.setIsActive(false);
+
+        when(userRepository.findById(Objects.requireNonNull(adminId))).thenReturn(Optional.of(admin));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> userService.updateUserStatus(Objects.requireNonNull(adminId), request,
+                        Objects.requireNonNull(adminId)));
+
+        assertEquals("Admin cannot deactivate their own account", exception.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @SuppressWarnings("null")
+    @Test
+    void updateUserStatus_shouldThrowBadRequestException_whenStatusAlreadySame() {
+        UpdateUserStatusRequest request = new UpdateUserStatusRequest();
+        request.setIsActive(true);
+
+        when(userRepository.findById(Objects.requireNonNull(adminId))).thenReturn(Optional.of(admin));
+        when(userRepository.findById(Objects.requireNonNull(userId))).thenReturn(Optional.of(user));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> userService.updateUserStatus(Objects.requireNonNull(userId), request,
+                        Objects.requireNonNull(adminId)));
+
+        assertEquals("User status is already set to the requested value", exception.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
     private User createUser(UUID id, String fullName, String email, UserRole role, Boolean isActive) {
         User user = new User();
         user.setId(id);
