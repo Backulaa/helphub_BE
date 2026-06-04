@@ -23,6 +23,8 @@ public class ReportSummaryResponse {
 
     private UUID targetId;
 
+    private String reason;
+
     private ReportStatus status;
 
     private LocalDateTime createdAt;
