@@ -2,7 +2,9 @@ package com.helphub.backend.modules.donation;
 
 import com.helphub.backend.common.payload.ApiResponse;
 import com.helphub.backend.modules.donation.dto.request.CreateDonationRequest;
+import com.helphub.backend.modules.donation.dto.request.CreatePayOsDonationRequest;
 import com.helphub.backend.modules.donation.dto.response.DonationResponse;
+import com.helphub.backend.modules.payment.dto.response.PayOsCheckoutResponse;
 import com.helphub.backend.security.model.CustomUserDetails;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -37,6 +39,23 @@ public class DonationController {
                 .body(ApiResponse.<DonationResponse>builder()
                         .success(true)
                         .message("Donation created successfully")
+                        .data(response)
+                        .build());
+    }
+
+    @PostMapping("/donations/payos")
+    public ResponseEntity<ApiResponse<PayOsCheckoutResponse>> createPayOsDonation(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @Valid @RequestBody CreatePayOsDonationRequest request) {
+
+        PayOsCheckoutResponse response = donationService.createPayOsDonation(
+                currentUser.getUserId(),
+                request);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<PayOsCheckoutResponse>builder()
+                        .success(true)
+                        .message("PayOS donation checkout created successfully")
                         .data(response)
                         .build());
     }

@@ -1,11 +1,17 @@
 package com.helphub.backend.modules.supportneed;
 
+import com.helphub.backend.common.enums.PaymentMethod;
 import com.helphub.backend.common.enums.SupportRequestStatus;
+import com.helphub.backend.common.enums.SupportType;
+import com.helphub.backend.common.enums.SupportNeedContributionStatus;
 import com.helphub.backend.common.enums.UserRole;
 import com.helphub.backend.common.exception.BadRequestException;
 import com.helphub.backend.common.exception.ForbiddenException;
 import com.helphub.backend.common.exception.ResourceNotFoundException;
 import com.helphub.backend.common.enums.VolunteerAssignmentStatus;
+import com.helphub.backend.modules.payment.PayOsPaymentLinkResult;
+import com.helphub.backend.modules.payment.PayOsService;
+import com.helphub.backend.modules.payment.dto.response.PayOsCheckoutResponse;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedContributionRequest;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedRequest;
 import com.helphub.backend.modules.supportneed.dto.request.UpdateSupportNeedRequest;
@@ -40,6 +46,7 @@ public class SupportNeedServiceImpl implements SupportNeedService {
     private final UserRepository userRepository;
     private final VolunteerAssignmentRepository volunteerAssignmentRepository;
     private final SupportNeedMapper supportNeedMapper;
+    private final PayOsService payOsService;
 
     @Override
     @Transactional
@@ -148,6 +155,9 @@ public class SupportNeedServiceImpl implements SupportNeedService {
 
         validateContributorCanContribute(contributor, supportRequest);
         validateSupportRequestCanReceiveContributions(supportRequest);
+        if (supportNeed.getSupportType() == SupportType.MONEY) {
+            throw new BadRequestException("Use the PayOS contribution endpoint for money support needs");
+        }
 
         if (supportRequest.getRequester().getId().equals(contributor.getId())) {
             throw new ForbiddenException("Requester cannot contribute to their own support need");
@@ -168,6 +178,7 @@ public class SupportNeedServiceImpl implements SupportNeedService {
                 .supportNeed(supportNeed)
                 .contributor(contributor)
                 .quantity(quantity)
+                .status(SupportNeedContributionStatus.SUCCESS)
                 .note(normalizeNullable(request.getNote()))
                 .build();
 
@@ -183,10 +194,76 @@ public class SupportNeedServiceImpl implements SupportNeedService {
     }
 
     @Override
+    @Transactional
+    public PayOsCheckoutResponse createPayOsMoneyContribution(
+            UUID contributorId,
+            UUID supportNeedId,
+            CreateSupportNeedContributionRequest request) {
+
+        User contributor = getUserById(contributorId);
+
+        SupportNeed supportNeed = getSupportNeedByIdOrThrow(supportNeedId);
+        SupportRequest supportRequest = supportNeed.getSupportRequest();
+
+        validateContributorCanContribute(contributor, supportRequest);
+        validateSupportRequestCanReceiveContributions(supportRequest);
+
+        if (supportRequest.getRequester().getId().equals(contributor.getId())) {
+            throw new ForbiddenException("Requester cannot contribute to their own support need");
+        }
+
+        if (supportNeed.getSupportType() != SupportType.MONEY) {
+            throw new BadRequestException("PayOS contributions are only available for money support needs");
+        }
+
+        BigDecimal quantity = validatePositiveQuantity(request.getQuantity(), "Contribution quantity");
+        BigDecimal reservedQuantity = getReservedQuantity(supportNeed);
+        BigDecimal newReservedQuantity = reservedQuantity.add(quantity);
+
+        if (newReservedQuantity.compareTo(supportNeed.getRequiredQuantity()) > 0) {
+            BigDecimal remainingQuantity = supportNeed.getRequiredQuantity().subtract(reservedQuantity);
+            if (remainingQuantity.compareTo(BigDecimal.ZERO) < 0) {
+                remainingQuantity = BigDecimal.ZERO;
+            }
+            throw new BadRequestException(
+                    "Contribution quantity exceeds remaining quantity. Remaining: " + remainingQuantity);
+        }
+
+        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(quantity, "HelpHub support");
+
+        SupportNeedContribution contribution = SupportNeedContribution.builder()
+                .supportNeed(supportNeed)
+                .contributor(contributor)
+                .quantity(quantity)
+                .paymentMethod(PaymentMethod.PAYOS)
+                .status(SupportNeedContributionStatus.PENDING)
+                .payosOrderCode(paymentLink.getOrderCode())
+                .payosPaymentLinkId(paymentLink.getPaymentLinkId())
+                .checkoutUrl(paymentLink.getCheckoutUrl())
+                .note(normalizeNullable(request.getNote()))
+                .build();
+
+        SupportNeedContribution savedContribution = supportNeedContributionRepository
+                .save(Objects.requireNonNull(contribution));
+
+        return PayOsCheckoutResponse.builder()
+                .id(savedContribution.getId())
+                .paymentType("SUPPORT_NEED_CONTRIBUTION")
+                .amount(savedContribution.getQuantity())
+                .orderCode(paymentLink.getOrderCode())
+                .paymentLinkId(paymentLink.getPaymentLinkId())
+                .checkoutUrl(paymentLink.getCheckoutUrl())
+                .qrCode(paymentLink.getQrCode())
+                .build();
+    }
+
+    @Override
     public List<SupportNeedContributionResponse> getContributionsBySupportNeed(UUID supportNeedId) {
         SupportNeed supportNeed = getSupportNeedByIdOrThrow(supportNeedId);
 
-        return supportNeedContributionRepository.findAllBySupportNeedOrderByCreatedAtDesc(supportNeed)
+        return supportNeedContributionRepository.findAllBySupportNeedAndStatusOrderByCreatedAtDesc(
+                        supportNeed,
+                        SupportNeedContributionStatus.SUCCESS)
                 .stream()
                 .map(supportNeedMapper::toContributionResponse)
                 .toList();
@@ -260,6 +337,15 @@ public class SupportNeedServiceImpl implements SupportNeedService {
     private boolean isSupportNeedFulfilled(SupportNeed supportNeed) {
         return supportNeed.getReceivedQuantity()
                 .compareTo(supportNeed.getRequiredQuantity()) >= 0;
+    }
+
+    private BigDecimal getReservedQuantity(SupportNeed supportNeed) {
+        return supportNeedContributionRepository.findAllBySupportNeedOrderByCreatedAtDesc(supportNeed)
+                .stream()
+                .filter(contribution -> contribution.getStatus() == SupportNeedContributionStatus.SUCCESS
+                        || contribution.getStatus() == SupportNeedContributionStatus.PENDING)
+                .map(SupportNeedContribution::getQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private void validateSupportRequestOwnership(User requester, SupportRequest supportRequest) {

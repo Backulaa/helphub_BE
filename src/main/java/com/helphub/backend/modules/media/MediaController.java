@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +38,29 @@ public class MediaController {
                                 .body(ApiResponse.<MediaDetailResponse>builder()
                                                 .success(true)
                                                 .message("Media created successfully")
+                                                .data(response)
+                                                .build());
+        }
+
+        @PostMapping("/upload")
+        public ResponseEntity<ApiResponse<MediaDetailResponse>> uploadMedia(
+                        @AuthenticationPrincipal CustomUserDetails currentUser,
+                        @RequestPart("file") MultipartFile file,
+                        @RequestParam(required = false) String folderName,
+                        @RequestParam(required = false) Boolean isPublic,
+                        @RequestParam(required = false) String altText) {
+
+                MediaDetailResponse response = mediaService.uploadMedia(
+                                currentUser.getUserId(),
+                                file,
+                                folderName,
+                                isPublic,
+                                altText);
+
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.<MediaDetailResponse>builder()
+                                                .success(true)
+                                                .message("Media uploaded successfully")
                                                 .data(response)
                                                 .build());
         }

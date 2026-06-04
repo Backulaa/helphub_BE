@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "donations")
@@ -37,6 +38,18 @@ public class Donation extends AuditableEntity {
 
     @Column(name = "transaction_code", length = 100)
     private String transactionCode;
+
+    @Column(name = "payos_order_code", unique = true)
+    private Long payosOrderCode;
+
+    @Column(name = "payos_payment_link_id", length = 100)
+    private String payosPaymentLinkId;
+
+    @Column(name = "checkout_url", columnDefinition = "TEXT")
+    private String checkoutUrl;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     @Column(columnDefinition = "TEXT")
     private String note;

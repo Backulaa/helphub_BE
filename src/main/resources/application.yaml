@@ -21,11 +21,30 @@ spring:
   jackson:
     time-zone: Asia/Ho_Chi_Minh
 
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:10MB}
+
 app:
   jwt:
     secret: your-super-secret-key-must-be-at-least-32-characters-long
     access-token-expiration: 3600000
     refresh-token-expiration: 604800000
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8081}
+  payment:
+    return-url: ${APP_PAYMENT_RETURN_URL:http://localhost:8081/api/v1/payments/payos/return}
+    cancel-url: ${APP_PAYMENT_CANCEL_URL:http://localhost:8081/api/v1/payments/payos/cancel}
+  payos:
+    client-id: ${PAYOS_CLIENT_ID}
+    api-key: ${PAYOS_API_KEY}
+    checksum-key: ${PAYOS_CHECKSUM_KEY}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME}
+    api-key: ${CLOUDINARY_API_KEY}
+    api-secret: ${CLOUDINARY_API_SECRET}
+    upload-preset: ${CLOUDINARY_UPLOAD_PRESET}
+    url: ${CLOUDINARY_URL}
 
 springdoc:
   api-docs:

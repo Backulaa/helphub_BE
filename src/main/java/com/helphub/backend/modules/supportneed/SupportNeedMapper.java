@@ -44,7 +44,14 @@ public class SupportNeedMapper {
                 .contributorId(contribution.getContributor().getId())
                 .contributorName(contribution.getContributor().getFullName())
                 .quantity(contribution.getQuantity())
+                .paymentMethod(contribution.getPaymentMethod())
+                .status(contribution.getStatus())
+                .transactionCode(contribution.getTransactionCode())
+                .payosOrderCode(contribution.getPayosOrderCode())
+                .payosPaymentLinkId(contribution.getPayosPaymentLinkId())
+                .checkoutUrl(contribution.getCheckoutUrl())
                 .note(contribution.getNote())
+                .paidAt(contribution.getPaidAt())
                 .createdAt(contribution.getCreatedAt())
                 .build();
     }

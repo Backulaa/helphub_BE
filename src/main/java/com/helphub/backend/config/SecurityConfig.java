@@ -20,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+// TODO: I will clean both the "/webhook" and "/api/v1/payments/payos/*" 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -42,7 +43,9 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 "/",
+                                                                "/webhook",
                                                                 "/api/v1/auth/**",
+                                                                "/api/v1/payments/payos/*",
                                                                 "/error",
                                                                 "/swagger-ui/**",
                                                                 "/swagger-ui.html",

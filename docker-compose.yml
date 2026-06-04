@@ -26,6 +26,16 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 123456
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_PUBLIC_BASE_URL: http://localhost:8081
+      APP_PAYMENT_RETURN_URL: http://localhost:8081/api/v1/payments/payos/return
+      APP_PAYMENT_CANCEL_URL: http://localhost:8081/api/v1/payments/payos/cancel
+      PAYOS_CLIENT_ID: payos_client_id_123456
+      PAYOS_API_KEY: payos_api_key_123456
+      PAYOS_CHECKSUM_KEY: payos_checksum_key_123456
+      CLOUDINARY_CLOUD_NAME: cloudinary_help_hub
+      CLOUDINARY_API_KEY: cloudinary_api_key_123456
+      CLOUDINARY_API_SECRET: cloudinary_api_secret_123456
+      CLOUDINARY_UPLOAD_PRESET: 
 
 volumes:
   postgres_data:

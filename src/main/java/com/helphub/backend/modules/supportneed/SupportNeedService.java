@@ -3,6 +3,7 @@ package com.helphub.backend.modules.supportneed;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedContributionRequest;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedRequest;
 import com.helphub.backend.modules.supportneed.dto.request.UpdateSupportNeedRequest;
+import com.helphub.backend.modules.payment.dto.response.PayOsCheckoutResponse;
 import com.helphub.backend.modules.supportneed.dto.response.SupportNeedContributionResponse;
 import com.helphub.backend.modules.supportneed.dto.response.SupportNeedResponse;
 
@@ -20,6 +21,11 @@ public interface SupportNeedService {
     void deleteSupportNeed(UUID requesterId, UUID supportNeedId);
 
     SupportNeedContributionResponse contributeToSupportNeed(
+            UUID contributorId,
+            UUID supportNeedId,
+            CreateSupportNeedContributionRequest request);
+
+    PayOsCheckoutResponse createPayOsMoneyContribution(
             UUID contributorId,
             UUID supportNeedId,
             CreateSupportNeedContributionRequest request);

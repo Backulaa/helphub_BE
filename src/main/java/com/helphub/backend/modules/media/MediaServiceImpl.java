@@ -1,7 +1,11 @@
 package com.helphub.backend.modules.media;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import com.helphub.backend.common.enums.MediaFileType;
 import com.helphub.backend.common.enums.UserRole;
 import com.helphub.backend.common.exception.BadRequestException;
+import com.helphub.backend.config.CloudinaryProperties;
 import com.helphub.backend.common.exception.ForbiddenException;
 import com.helphub.backend.common.exception.ResourceNotFoundException;
 import com.helphub.backend.modules.media.dto.request.CreateMediaRequest;
@@ -15,8 +19,11 @@ import com.helphub.backend.persistence.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -27,6 +34,8 @@ public class MediaServiceImpl implements MediaService {
     private final MediaRepository mediaRepository;
     private final UserRepository userRepository;
     private final MediaMapper mediaMapper;
+    private final Cloudinary cloudinary;
+    private final CloudinaryProperties cloudinaryProperties;
 
     @Override
     public MediaDetailResponse createMedia(UUID currentUserId, CreateMediaRequest request) {
@@ -48,6 +57,63 @@ public class MediaServiceImpl implements MediaService {
 
         Media savedMedia = mediaRepository.save(Objects.requireNonNull(media));
         return mediaMapper.toDetailResponse(savedMedia);
+    }
+
+    @Override
+    public MediaDetailResponse uploadMedia(
+            UUID currentUserId,
+            MultipartFile file,
+            String folderName,
+            Boolean isPublic,
+            String altText) {
+
+        User currentUser = getUserById(currentUserId);
+        validateUploadFile(file);
+
+        String fileUrl = uploadFile(file, folderName);
+        String mimeType = normalizeRequired(file.getContentType(), "MIME type is required");
+
+        Media media = Media.builder()
+                .fileName(normalizeUploadedFileName(file.getOriginalFilename()))
+                .fileUrl(fileUrl)
+                .fileType(resolveMediaFileType(mimeType))
+                .mimeType(mimeType)
+                .fileSize(file.getSize())
+                .uploadedBy(currentUser)
+                .altText(normalizeNullable(altText))
+                .isPublic(isPublic != null ? isPublic : true)
+                .build();
+
+        Media savedMedia = mediaRepository.save(Objects.requireNonNull(media));
+        return mediaMapper.toDetailResponse(savedMedia);
+    }
+
+    @Override
+    public String uploadFile(MultipartFile file, String folderName) {
+        validateUploadFile(file);
+        validateCloudinaryConfigured();
+
+        try {
+            Map<Object, Object> uploadOptions = ObjectUtils.asMap(
+                    "folder", normalizeFolderName(folderName));
+
+            if (StringUtils.hasText(cloudinaryProperties.getUploadPreset())) {
+                uploadOptions.put("upload_preset", cloudinaryProperties.getUploadPreset().trim());
+            }
+
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
+            Object secureUrl = uploadResult.get("secure_url");
+
+            if (secureUrl == null) {
+                throw new BadRequestException("Cloudinary upload did not return a secure URL");
+            }
+
+            return secureUrl.toString();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to upload file", ex);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Failed to upload file to Cloudinary", ex);
+        }
     }
 
     @Override
@@ -144,6 +210,64 @@ public class MediaServiceImpl implements MediaService {
         if (fileSize == null || fileSize <= 0) {
             throw new BadRequestException("File size must be greater than 0");
         }
+    }
+
+    private void validateUploadFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File is required");
+        }
+
+        if (!StringUtils.hasText(file.getContentType())) {
+            throw new BadRequestException("File MIME type is required");
+        }
+    }
+
+    private void validateCloudinaryConfigured() {
+        boolean hasUrl = StringUtils.hasText(cloudinaryProperties.getUrl());
+        boolean hasParts = StringUtils.hasText(cloudinaryProperties.getCloudName())
+                && StringUtils.hasText(cloudinaryProperties.getApiKey())
+                && StringUtils.hasText(cloudinaryProperties.getApiSecret());
+
+        if (!hasUrl && !hasParts) {
+            throw new BadRequestException("Cloudinary credentials are not configured");
+        }
+    }
+
+    private MediaFileType resolveMediaFileType(String mimeType) {
+        if (mimeType.startsWith("image/")) {
+            return MediaFileType.IMAGE;
+        }
+
+        if (mimeType.startsWith("video/")) {
+            return MediaFileType.VIDEO;
+        }
+
+        if (mimeType.startsWith("audio/")) {
+            return MediaFileType.AUDIO;
+        }
+
+        return MediaFileType.DOCUMENT;
+    }
+
+    private String normalizeUploadedFileName(String originalFilename) {
+        if (!StringUtils.hasText(originalFilename)) {
+            return "upload";
+        }
+
+        String fileName = originalFilename.trim();
+        if (fileName.length() <= 255) {
+            return fileName;
+        }
+
+        return fileName.substring(0, 255);
+    }
+
+    private String normalizeFolderName(String folderName) {
+        if (!StringUtils.hasText(folderName)) {
+            return "helphub/media";
+        }
+
+        return folderName.trim();
     }
 
     private String normalizeRequired(String value, String message) {

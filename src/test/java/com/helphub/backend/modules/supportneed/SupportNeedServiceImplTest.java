@@ -1,6 +1,7 @@
 package com.helphub.backend.modules.supportneed;
 
 import com.helphub.backend.common.enums.SupportNeedUnit;
+import com.helphub.backend.common.enums.SupportNeedContributionStatus;
 import com.helphub.backend.common.enums.SupportRequestStatus;
 import com.helphub.backend.common.enums.SupportType;
 import com.helphub.backend.common.enums.UserRole;
@@ -504,7 +505,9 @@ class SupportNeedServiceImplTest {
                 SupportNeedContributionResponse expectedResponse = createContributionResponse(contribution.getId());
 
                 when(supportNeedRepository.findById(supportNeedId)).thenReturn(Optional.of(supportNeed));
-                when(supportNeedContributionRepository.findAllBySupportNeedOrderByCreatedAtDesc(supportNeed))
+                when(supportNeedContributionRepository.findAllBySupportNeedAndStatusOrderByCreatedAtDesc(
+                                supportNeed,
+                                SupportNeedContributionStatus.SUCCESS))
                                 .thenReturn(List.of(contribution));
                 when(supportNeedMapper.toContributionResponse(contribution)).thenReturn(expectedResponse);
 
@@ -514,7 +517,9 @@ class SupportNeedServiceImplTest {
                 assertEquals(1, response.size());
                 assertEquals(contribution.getId(), response.get(0).getId());
 
-                verify(supportNeedContributionRepository).findAllBySupportNeedOrderByCreatedAtDesc(supportNeed);
+                verify(supportNeedContributionRepository).findAllBySupportNeedAndStatusOrderByCreatedAtDesc(
+                                supportNeed,
+                                SupportNeedContributionStatus.SUCCESS);
         }
 
         @Test

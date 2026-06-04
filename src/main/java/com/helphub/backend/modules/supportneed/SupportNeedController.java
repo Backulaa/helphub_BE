@@ -1,6 +1,7 @@
 package com.helphub.backend.modules.supportneed;
 
 import com.helphub.backend.common.payload.ApiResponse;
+import com.helphub.backend.modules.payment.dto.response.PayOsCheckoutResponse;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedContributionRequest;
 import com.helphub.backend.modules.supportneed.dto.request.CreateSupportNeedRequest;
 import com.helphub.backend.modules.supportneed.dto.request.UpdateSupportNeedRequest;
@@ -111,6 +112,26 @@ public class SupportNeedController {
                 .body(ApiResponse.<SupportNeedContributionResponse>builder()
                         .success(true)
                         .message("Support need contribution created successfully")
+                        .data(response)
+                        .build());
+    }
+
+    @PreAuthorize("hasRole('VOLUNTEER') or hasRole('COLLABORATOR')")
+    @PostMapping("/support-needs/{needId}/contributions/payos")
+    public ResponseEntity<ApiResponse<PayOsCheckoutResponse>> createPayOsMoneyContribution(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable @NotNull UUID needId,
+            @Valid @RequestBody CreateSupportNeedContributionRequest request) {
+
+        PayOsCheckoutResponse response = supportNeedService.createPayOsMoneyContribution(
+                currentUser.getUserId(),
+                needId,
+                request);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<PayOsCheckoutResponse>builder()
+                        .success(true)
+                        .message("PayOS contribution checkout created successfully")
                         .data(response)
                         .build());
     }

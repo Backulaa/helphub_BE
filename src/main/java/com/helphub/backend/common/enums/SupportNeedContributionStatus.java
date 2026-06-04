@@ -1,6 +1,6 @@
 package com.helphub.backend.common.enums;
 
-public enum DonationStatus {
+public enum SupportNeedContributionStatus {
     PENDING,
     SUCCESS,
     CANCELLED,

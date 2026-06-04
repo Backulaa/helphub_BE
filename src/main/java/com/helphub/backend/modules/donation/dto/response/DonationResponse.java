@@ -23,6 +23,10 @@ public class DonationResponse {
     private PaymentMethod paymentMethod;
     private DonationStatus status;
     private String transactionCode;
+    private Long payosOrderCode;
+    private String payosPaymentLinkId;
+    private String checkoutUrl;
     private String note;
+    private LocalDateTime paidAt;
     private LocalDateTime createdAt;
 }

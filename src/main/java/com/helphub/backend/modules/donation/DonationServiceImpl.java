@@ -1,10 +1,15 @@
 package com.helphub.backend.modules.donation;
 
 import com.helphub.backend.common.enums.DonationStatus;
+import com.helphub.backend.common.enums.PaymentMethod;
 import com.helphub.backend.common.exception.BadRequestException;
 import com.helphub.backend.common.exception.ResourceNotFoundException;
 import com.helphub.backend.modules.donation.dto.request.CreateDonationRequest;
+import com.helphub.backend.modules.donation.dto.request.CreatePayOsDonationRequest;
 import com.helphub.backend.modules.donation.dto.response.DonationResponse;
+import com.helphub.backend.modules.payment.PayOsPaymentLinkResult;
+import com.helphub.backend.modules.payment.PayOsService;
+import com.helphub.backend.modules.payment.dto.response.PayOsCheckoutResponse;
 import com.helphub.backend.persistence.entity.CommunityFund;
 import com.helphub.backend.persistence.entity.Donation;
 import com.helphub.backend.persistence.entity.User;
@@ -29,6 +34,7 @@ public class DonationServiceImpl implements DonationService {
     private final CommunityFundRepository communityFundRepository;
     private final UserRepository userRepository;
     private final DonationMapper donationMapper;
+    private final PayOsService payOsService;
 
     @Override
     @Transactional
@@ -37,6 +43,9 @@ public class DonationServiceImpl implements DonationService {
         CommunityFund fund = getCommunityFundByIdOrThrow(request.getFundId());
 
         validateActiveFund(fund);
+        if (request.getPaymentMethod() == PaymentMethod.PAYOS) {
+            throw new BadRequestException("Use the PayOS donation endpoint for PayOS payments");
+        }
 
         BigDecimal amount = validatePositiveAmount(request.getAmount());
 
@@ -59,10 +68,46 @@ public class DonationServiceImpl implements DonationService {
     }
 
     @Override
+    @Transactional
+    public PayOsCheckoutResponse createPayOsDonation(UUID donorId, CreatePayOsDonationRequest request) {
+        User donor = getUserById(donorId);
+        CommunityFund fund = getCommunityFundByIdOrThrow(request.getFundId());
+
+        validateActiveFund(fund);
+
+        BigDecimal amount = validatePositiveAmount(request.getAmount());
+        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(amount, "HelpHub donation");
+
+        Donation donation = Donation.builder()
+                .fund(fund)
+                .donor(donor)
+                .amount(amount)
+                .paymentMethod(PaymentMethod.PAYOS)
+                .status(DonationStatus.PENDING)
+                .payosOrderCode(paymentLink.getOrderCode())
+                .payosPaymentLinkId(paymentLink.getPaymentLinkId())
+                .checkoutUrl(paymentLink.getCheckoutUrl())
+                .note(normalizeNullable(request.getNote()))
+                .build();
+
+        Donation savedDonation = donationRepository.save(Objects.requireNonNull(donation));
+
+        return PayOsCheckoutResponse.builder()
+                .id(savedDonation.getId())
+                .paymentType("COMMUNITY_FUND_DONATION")
+                .amount(savedDonation.getAmount())
+                .orderCode(paymentLink.getOrderCode())
+                .paymentLinkId(paymentLink.getPaymentLinkId())
+                .checkoutUrl(paymentLink.getCheckoutUrl())
+                .qrCode(paymentLink.getQrCode())
+                .build();
+    }
+
+    @Override
     public List<DonationResponse> getMyDonations(UUID donorId) {
         User donor = getUserById(donorId);
 
-        return donationRepository.findAllByDonorOrderByCreatedAtDesc(donor)
+        return donationRepository.findAllByDonorAndStatusOrderByCreatedAtDesc(donor, DonationStatus.SUCCESS)
                 .stream()
                 .map(donationMapper::toResponse)
                 .toList();
@@ -74,7 +119,7 @@ public class DonationServiceImpl implements DonationService {
         User currentUser = getUserById(currentUserId);
         CommunityFund fund = getCommunityFundByIdOrThrow(fundId);
 
-        return donationRepository.findAllByFundOrderByCreatedAtDesc(fund)
+        return donationRepository.findAllByFundAndStatusOrderByCreatedAtDesc(fund, DonationStatus.SUCCESS)
                 .stream()
                 .map(donationMapper::toResponse)
                 .toList();

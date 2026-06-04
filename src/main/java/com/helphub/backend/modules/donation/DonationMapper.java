@@ -18,7 +18,11 @@ public class DonationMapper {
                 .paymentMethod(donation.getPaymentMethod())
                 .status(donation.getStatus())
                 .transactionCode(donation.getTransactionCode())
+                .payosOrderCode(donation.getPayosOrderCode())
+                .payosPaymentLinkId(donation.getPayosPaymentLinkId())
+                .checkoutUrl(donation.getCheckoutUrl())
                 .note(donation.getNote())
+                .paidAt(donation.getPaidAt())
                 .createdAt(donation.getCreatedAt())
                 .build();
     }
