@@ -23,6 +23,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -76,7 +77,14 @@ public class DonationServiceImpl implements DonationService {
         validateActiveFund(fund);
 
         BigDecimal amount = validatePositiveAmount(request.getAmount());
-        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(amount, "HelpHub donation");
+        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(
+                amount,
+                "HelpHub donation",
+                Map.of(
+                        "source", "communityFund",
+                        "fundId", fund.getId().toString()),
+                request.getReturnUrl(),
+                request.getCancelUrl());
 
         Donation donation = Donation.builder()
                 .fund(fund)

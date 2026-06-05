@@ -16,6 +16,7 @@ public class CommunityFundDetailResponse {
     private String name;
     private String description;
     private BigDecimal totalBalance;
+    private BigDecimal availableTransferAmount;
     private Boolean isActive;
     private UUID createdBy;
     private String createdByName;

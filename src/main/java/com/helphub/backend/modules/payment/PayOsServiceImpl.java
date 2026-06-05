@@ -6,6 +6,7 @@ import com.helphub.backend.config.PaymentProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 import vn.payos.PayOS;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
@@ -16,6 +17,7 @@ import vn.payos.model.webhooks.WebhookData;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,14 +30,39 @@ public class PayOsServiceImpl implements PayOsService {
 
     @Override
     public PayOsPaymentLinkResult createPaymentLink(BigDecimal amount, String description) {
+        return createPaymentLink(amount, description, Map.of());
+    }
+
+    @Override
+    public PayOsPaymentLinkResult createPaymentLink(
+            BigDecimal amount,
+            String description,
+            Map<String, String> redirectParams) {
+        return createPaymentLink(amount, description, redirectParams, null, null);
+    }
+
+    @Override
+    public PayOsPaymentLinkResult createPaymentLink(
+            BigDecimal amount,
+            String description,
+            Map<String, String> redirectParams,
+            String returnUrl,
+            String cancelUrl) {
+
         Long orderCode = generateOrderCode();
+        String resolvedReturnUrl = StringUtils.hasText(returnUrl)
+                ? returnUrl.trim()
+                : requiredPaymentUrl(paymentProperties.getReturnUrl(), "PayOS return URL is not configured");
+        String resolvedCancelUrl = StringUtils.hasText(cancelUrl)
+                ? cancelUrl.trim()
+                : requiredPaymentUrl(paymentProperties.getCancelUrl(), "PayOS cancel URL is not configured");
 
         CreatePaymentLinkRequest request = CreatePaymentLinkRequest.builder()
                 .orderCode(orderCode)
                 .amount(toPayOsAmount(amount))
                 .description(normalizeDescription(description))
-                .returnUrl(requiredPaymentUrl(paymentProperties.getReturnUrl(), "PayOS return URL is not configured"))
-                .cancelUrl(requiredPaymentUrl(paymentProperties.getCancelUrl(), "PayOS cancel URL is not configured"))
+                .returnUrl(withRedirectParams(resolvedReturnUrl, redirectParams))
+                .cancelUrl(withRedirectParams(resolvedCancelUrl, redirectParams))
                 .build();
 
         CreatePaymentLinkResponse response = client().paymentRequests().create(request);
@@ -103,6 +130,21 @@ public class PayOsServiceImpl implements PayOsService {
         }
 
         return value.trim();
+    }
+
+    private String withRedirectParams(String url, Map<String, String> params) {
+        if (params == null || params.isEmpty()) {
+            return url;
+        }
+
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
+        params.forEach((key, value) -> {
+            if (StringUtils.hasText(key) && StringUtils.hasText(value)) {
+                builder.queryParam(key, value);
+            }
+        });
+
+        return builder.build().encode().toUriString();
     }
 
     private Long generateOrderCode() {

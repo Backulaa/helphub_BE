@@ -97,10 +97,6 @@ public class MediaServiceImpl implements MediaService {
             Map<Object, Object> uploadOptions = ObjectUtils.asMap(
                     "folder", normalizeFolderName(folderName));
 
-            if (StringUtils.hasText(cloudinaryProperties.getUploadPreset())) {
-                uploadOptions.put("upload_preset", cloudinaryProperties.getUploadPreset().trim());
-            }
-
             Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadOptions);
             Object secureUrl = uploadResult.get("secure_url");
 

@@ -13,14 +13,12 @@ import com.helphub.backend.modules.moneytransfer.dto.request.CreateMoneyTransfer
 import com.helphub.backend.modules.moneytransfer.dto.request.RejectMoneyTransferTicketRequest;
 import com.helphub.backend.modules.moneytransfer.dto.response.MoneyTransferTicketResponse;
 import com.helphub.backend.persistence.entity.CommunityFund;
-import com.helphub.backend.persistence.entity.Expense;
 import com.helphub.backend.persistence.entity.MoneyTransferTicket;
 import com.helphub.backend.persistence.entity.SupportNeed;
 import com.helphub.backend.persistence.entity.SupportRequest;
 import com.helphub.backend.persistence.entity.User;
 import com.helphub.backend.persistence.repository.CommunityFundMemberRepository;
 import com.helphub.backend.persistence.repository.CommunityFundRepository;
-import com.helphub.backend.persistence.repository.ExpenseRepository;
 import com.helphub.backend.persistence.repository.MoneyTransferTicketRepository;
 import com.helphub.backend.persistence.repository.SupportNeedRepository;
 import com.helphub.backend.persistence.repository.UserRepository;
@@ -47,7 +45,6 @@ public class MoneyTransferTicketServiceImpl implements MoneyTransferTicketServic
     private final CommunityFundMemberRepository communityFundMemberRepository;
     private final SupportNeedRepository supportNeedRepository;
     private final UserRepository userRepository;
-    private final ExpenseRepository expenseRepository;
     private final MediaService mediaService;
     private final MoneyTransferTicketMapper moneyTransferTicketMapper;
 
@@ -174,7 +171,7 @@ public class MoneyTransferTicketServiceImpl implements MoneyTransferTicketServic
         String proofImageUrl = mediaService.uploadFile(proofFile, TRANSFER_PROOF_FOLDER);
 
         if (ticket.getSourceType() == MoneyTransferTicketSourceType.COMMUNITY_FUND) {
-            resolveCommunityFundTicket(ticket, admin);
+            resolveCommunityFundTicket(ticket);
         }
 
         ticket.setStatus(MoneyTransferTicketStatus.RESOLVED);
@@ -187,26 +184,16 @@ public class MoneyTransferTicketServiceImpl implements MoneyTransferTicketServic
         return moneyTransferTicketMapper.toResponse(savedTicket);
     }
 
-    private void resolveCommunityFundTicket(MoneyTransferTicket ticket, User admin) {
+    private void resolveCommunityFundTicket(MoneyTransferTicket ticket) {
         CommunityFund fund = ticket.getFund();
         if (fund == null) {
             throw new BadRequestException("Community fund transfer ticket is missing fund");
         }
 
-        if (fund.getTotalBalance().compareTo(ticket.getAmount()) < 0) {
+        BigDecimal availableTransferAmount = getAvailableFundAmountForResolution(fund);
+        if (availableTransferAmount.compareTo(ticket.getAmount()) < 0) {
             throw new BadRequestException("Community fund balance is not enough to resolve this ticket");
         }
-
-        Expense expense = Expense.builder()
-                .fund(fund)
-                .createdBy(admin)
-                .amount(ticket.getAmount())
-                .description("External money transfer resolved for ticket " + ticket.getId())
-                .build();
-
-        expenseRepository.save(Objects.requireNonNull(expense));
-        fund.setTotalBalance(fund.getTotalBalance().subtract(ticket.getAmount()));
-        communityFundRepository.save(fund);
     }
 
     private User getUserById(UUID userId) {
@@ -291,11 +278,19 @@ public class MoneyTransferTicketServiceImpl implements MoneyTransferTicketServic
     }
 
     private BigDecimal getAvailableFundAmount(CommunityFund fund) {
-        BigDecimal pendingAmount = moneyTransferTicketRepository.sumAmountByFundAndStatuses(
+        BigDecimal reservedAmount = moneyTransferTicketRepository.sumAmountByFundAndStatuses(
                 fund,
-                List.of(MoneyTransferTicketStatus.PENDING));
+                List.of(MoneyTransferTicketStatus.PENDING, MoneyTransferTicketStatus.RESOLVED));
 
-        return fund.getTotalBalance().subtract(pendingAmount);
+        return fund.getTotalBalance().subtract(reservedAmount);
+    }
+
+    private BigDecimal getAvailableFundAmountForResolution(CommunityFund fund) {
+        BigDecimal transferredAmount = moneyTransferTicketRepository.sumAmountByFundAndStatuses(
+                fund,
+                List.of(MoneyTransferTicketStatus.RESOLVED));
+
+        return fund.getTotalBalance().subtract(transferredAmount);
     }
 
     private BigDecimal getAvailableSupportNeedAmount(SupportNeed supportNeed) {

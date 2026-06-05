@@ -22,4 +22,10 @@ public class CreatePayOsDonationRequest {
 
     @Size(max = 500, message = "Note must not exceed 500 characters")
     private String note;
+
+    @Size(max = 1000, message = "Return URL must not exceed 1000 characters")
+    private String returnUrl;
+
+    @Size(max = 1000, message = "Cancel URL must not exceed 1000 characters")
+    private String cancelUrl;
 }

@@ -148,4 +148,18 @@ public class SupportNeedController {
                 .data(response)
                 .build());
     }
+
+    @GetMapping("/support-need-contributions/my-contributions")
+    public ResponseEntity<ApiResponse<List<SupportNeedContributionResponse>>> getMyContributions(
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        List<SupportNeedContributionResponse> response = supportNeedService.getMyContributions(
+                currentUser.getUserId());
+
+        return ResponseEntity.ok(ApiResponse.<List<SupportNeedContributionResponse>>builder()
+                .success(true)
+                .message("My support need contributions fetched successfully")
+                .data(response)
+                .build());
+    }
 }

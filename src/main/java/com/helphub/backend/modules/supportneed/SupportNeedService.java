@@ -31,4 +31,6 @@ public interface SupportNeedService {
             CreateSupportNeedContributionRequest request);
 
     List<SupportNeedContributionResponse> getContributionsBySupportNeed(UUID supportNeedId);
+
+    List<SupportNeedContributionResponse> getMyContributions(UUID contributorId);
 }

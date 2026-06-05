@@ -33,6 +33,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -229,7 +230,15 @@ public class SupportNeedServiceImpl implements SupportNeedService {
                     "Contribution quantity exceeds remaining quantity. Remaining: " + remainingQuantity);
         }
 
-        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(quantity, "HelpHub support");
+        PayOsPaymentLinkResult paymentLink = payOsService.createPaymentLink(
+                quantity,
+                "HelpHub support",
+                Map.of(
+                        "source", "supportRequest",
+                        "requestId", supportRequest.getId().toString(),
+                        "supportNeedId", supportNeed.getId().toString()),
+                request.getReturnUrl(),
+                request.getCancelUrl());
 
         SupportNeedContribution contribution = SupportNeedContribution.builder()
                 .supportNeed(supportNeed)
@@ -263,6 +272,18 @@ public class SupportNeedServiceImpl implements SupportNeedService {
 
         return supportNeedContributionRepository.findAllBySupportNeedAndStatusOrderByCreatedAtDesc(
                         supportNeed,
+                        SupportNeedContributionStatus.SUCCESS)
+                .stream()
+                .map(supportNeedMapper::toContributionResponse)
+                .toList();
+    }
+
+    @Override
+    public List<SupportNeedContributionResponse> getMyContributions(UUID contributorId) {
+        User contributor = getUserById(contributorId);
+
+        return supportNeedContributionRepository.findAllByContributorAndStatusOrderByCreatedAtDesc(
+                        contributor,
                         SupportNeedContributionStatus.SUCCESS)
                 .stream()
                 .map(supportNeedMapper::toContributionResponse)
